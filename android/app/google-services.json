@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "947523686788",
+    "firebase_url": "https://lexicaar-b7f90-default-rtdb.firebaseio.com",
+    "project_id": "lexicaar-b7f90",
+    "storage_bucket": "lexicaar-b7f90.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:947523686788:android:2c4557f95f82ba59f24dd1",
+        "android_client_info": {
+          "package_name": "com.example.chatifyapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "947523686788-59prffuoe4hf6skimav6aesdbg8oro25.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCK_au_B14FcjXFZbJahb-jZUF7WmZD-Ic"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "947523686788-59prffuoe4hf6skimav6aesdbg8oro25.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
