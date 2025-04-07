@@ -1,4 +1,9 @@
+import 'package:chatify/providers/auth_provider.dart';
+import 'package:chatify/services/cloud_storage_service.dart';
+import 'package:chatify/services/db_service.dart';
+import 'package:chatify/services/media_service.dart';
 import 'package:chatify/services/navigation_service.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 
 class RegistrationPage extends StatefulWidget {
@@ -12,33 +17,51 @@ class _RegistrationPageState extends State<RegistrationPage> {
   late double _deviceheight;
   late double _devicewidth;
 
+  late AuthProvider _auth;
+
   GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  FileImage? _image;
+
+  late String _name;
+  late String _email;
+  late String _password;
 
   @override
   Widget build(BuildContext context) {
     _deviceheight = MediaQuery.of(context).size.height;
     _devicewidth = MediaQuery.of(context).size.width;
     return Scaffold(
-      body: Align(alignment: Alignment.center, child: _registrationPageUI()),
+      body: Align(
+        alignment: Alignment.center,
+        child: ChangeNotifierProvider<AuthProvider>.value(
+          value: AuthProvider.instance,
+          child: _registrationPageUI(),
+        ),
+      ),
     );
   }
 
   Widget _registrationPageUI() {
-    return Container(
-      height: _deviceheight * 0.75,
-      width: _devicewidth,
-      padding: EdgeInsets.symmetric(horizontal: _devicewidth * 0.10),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        mainAxisSize: MainAxisSize.max,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _heading(),
-          _inputform(),
-          _registerButton(),
-          _backToLoginPage(),
-        ],
-      ),
+    return Builder(
+      builder: (BuildContext _context) {
+        _auth = Provider.of<AuthProvider>(_context);
+        return Container(
+          height: _deviceheight * 0.75,
+          width: _devicewidth,
+          padding: EdgeInsets.symmetric(horizontal: _devicewidth * 0.10),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _heading(),
+              _inputform(),
+              _registerButton(),
+              _backToLoginPage(),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -76,7 +99,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
       height: _deviceheight * 0.38,
       child: Form(
         key: _formKey,
-        onChanged: () {},
+        onChanged: () {
+          _formKey.currentState?.save();
+        },
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           mainAxisSize: MainAxisSize.max,
@@ -93,14 +118,30 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 
   Widget _imageSelector() {
-    return Container(
-      height: _deviceheight * 0.10,
-      width: _devicewidth * 10,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(500),
-        image: DecorationImage(
-          image: NetworkImage(
-            "https://cdn0.iconfinder.com/data/icons/occupation-002/64/programmer-programming-occupation-avatar-512.png",
+    return Align(
+      alignment: Alignment.center,
+      child: GestureDetector(
+        onTap: () async {
+          MediaService.instance.getImageFromLibrary().then((file) {
+            setState(() {
+              _image = FileImage(file);
+            });
+          });
+        },
+        child: Container(
+          height: _deviceheight * 0.10,
+          width: _deviceheight * 0.10,
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(500),
+            image: DecorationImage(
+              fit: BoxFit.cover,
+              image:
+                  _image ??
+                  NetworkImage(
+                    "https://cdn0.iconfinder.com/data/icons/occupation-002/64/programmer-programming-occupation-avatar-512.png",
+                  ),
+            ),
           ),
         ),
       ),
@@ -114,7 +155,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
         return _input?.length != 0 ? null : "Enter your name";
       },
       onSaved: (_input) {
-        setState(() {});
+        setState(() {
+          _name = _input!;
+        });
       },
       decoration: InputDecoration(
         hintText: "Name",
@@ -134,7 +177,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
             : "Enter a valid email address";
       },
       onSaved: (_input) {
-        setState(() {});
+        setState(() {
+          _email = _input!;
+        });
       },
       style: TextStyle(color: Colors.white),
       decoration: InputDecoration(
@@ -154,7 +199,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
         return _input?.length != 0 ? null : "Enter a password";
       },
       onSaved: (_input) {
-        setState(() {});
+        setState(() {
+          _password = _input!;
+        });
       },
       decoration: InputDecoration(
         hintText: "Password",
@@ -166,22 +213,45 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 
   Widget _registerButton() {
-    return Container(
-      height: _deviceheight * 0.06,
-      color: Colors.blue,
-      child: Align(
-        alignment: Alignment.center,
-        child: MaterialButton(
-          onPressed: () {
-            _formKey.currentState!.validate();
-          },
-          child: Text(
-            "REGISTER",
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+    return _auth.status != AuthStatus.Authenticating
+        ? Container(
+          height: _deviceheight * 0.06,
+          color: Colors.blue,
+          child: Align(
+            alignment: Alignment.center,
+            child: MaterialButton(
+              onPressed: () {
+                if (_formKey.currentState!.validate() && _image != null) {
+                  _auth.createUserWithEmailAndPassword(_email, _password, (
+                    String _uid,
+                  ) async {
+                    var _result = await CloudStorageService.instance
+                        .uploadProfileImage(_uid, (_image?.file.path)!);
+                    var snapshot = await _result;
+                    var _imageURL = await snapshot.ref.getDownloadURL();
+                    await DBService.instance.createUserInDB(
+                      _uid,
+                      _name,
+                      _email,
+                      _imageURL,
+                    );
+                  });
+                }
+              },
+              child: Text(
+                "REGISTER",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
-    );
+        )
+        : Align(
+          alignment: Alignment.center,
+          child: CircularProgressIndicator(),
+        );
   }
 
   Widget _backToLoginPage() {
