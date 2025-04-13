@@ -6,12 +6,12 @@ gradle-wrapper.jar
 /local.properties
 GeneratedPluginRegistrant.java
 .cxx/
+google-services.json
 
 # Remember to never publicly share your keystore.
-# See https://flutter.dev/to/reference-keystorea
+# See https://flutter.dev/to/reference-keystore
 key.properties
 **/*.keystore
 **/*.jks
 
-# Ignore google-services.json
-android/app/google-services.json
+
