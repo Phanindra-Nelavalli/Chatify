@@ -8,6 +8,7 @@ enum AuthStatus {
   Authenticating,
   NotAuthenticated,
   UserNotFound,
+  UnAuthenticating,
   Error,
 }
 
@@ -20,6 +21,21 @@ class AuthProvider extends ChangeNotifier {
 
   AuthProvider() {
     _auth = FirebaseAuth.instance;
+    _checkCurrentUserIsAuthenticated();
+  }
+
+  void _autoLogin() {
+    if (user != null) {
+      NavigationService.instance.navigateToReplacement("home");
+    }
+  }
+
+  void _checkCurrentUserIsAuthenticated() async {
+    user = await _auth.currentUser;
+    if (user != null) {
+      notifyListeners();
+      _autoLogin();
+    }
   }
 
   void loginWithEmailAndPassword(String _email, String _password) async {
@@ -65,6 +81,22 @@ class AuthProvider extends ChangeNotifier {
       status = AuthStatus.Error;
       user = null;
       _snackbarService.showSnackBarError("Error Registering");
+    }
+    notifyListeners();
+  }
+
+  void logout(Future<void> onSuccess()) async {
+    status = AuthStatus.UnAuthenticating;
+    notifyListeners();
+    try {
+      await _auth.signOut();
+      user = null;
+      status = AuthStatus.NotAuthenticated;
+      await onSuccess();
+      NavigationService.instance.navigateToReplacement("login");
+    } catch (e) {
+      status = AuthStatus.Error;
+      _snackbarService.showSnackBarError("Error in Logout");
     }
     notifyListeners();
   }
