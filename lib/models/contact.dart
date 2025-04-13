@@ -6,6 +6,7 @@ class Contact {
   final String image;
   final String id;
   final Timestamp timestamp;
+  final Timestamp lastSeen;
 
   Contact({
     required this.name,
@@ -13,6 +14,7 @@ class Contact {
     required this.image,
     required this.id,
     required this.timestamp,
+    required this.lastSeen,
   });
 
   factory Contact.fromFirestore(DocumentSnapshot _snapshot) {
@@ -21,8 +23,9 @@ class Contact {
       name: _data?["name"] ?? "",
       email: _data?["email"] ?? "",
       image: _data?["image"] ?? "",
-      id: _data?["id"] ?? "",
+      id: _snapshot.id,
       timestamp: _data?["timestamp"] ?? Timestamp.now(),
+      lastSeen: _data?["lastseen"] ?? Timestamp.now(),
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:chatify/services/db_service.dart';
 import 'package:chatify/services/navigation_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -24,9 +25,10 @@ class AuthProvider extends ChangeNotifier {
     _checkCurrentUserIsAuthenticated();
   }
 
-  void _autoLogin() {
+  void _autoLogin() async {
     if (user != null) {
       NavigationService.instance.navigateToReplacement("home");
+      await DBService.instance.updateUserLastSeen(user!.uid);
     }
   }
 
@@ -49,6 +51,7 @@ class AuthProvider extends ChangeNotifier {
       user = _result.user;
       status = AuthStatus.Authenticated;
       _snackbarService.showSnackBarSuccess("Welcome, ${user?.email}");
+      await DBService.instance.updateUserLastSeen(user!.uid);
       NavigationService.instance.navigateToReplacement("home");
       print(user);
     } catch (e) {
@@ -75,6 +78,7 @@ class AuthProvider extends ChangeNotifier {
       await onSuccess(user!.uid);
       status = AuthStatus.Authenticated;
       _snackbarService.showSnackBarSuccess("Welcome ${user!.email}");
+      await DBService.instance.updateUserLastSeen(user!.uid);
       NavigationService.instance.goBack();
       NavigationService.instance.navigateToReplacement("home");
     } catch (e) {

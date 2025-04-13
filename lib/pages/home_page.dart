@@ -1,4 +1,6 @@
 import 'package:chatify/pages/profile_page.dart';
+import 'package:chatify/pages/recent_conversation_page.dart';
+import 'package:chatify/pages/search_page.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatefulWidget {
@@ -35,6 +37,7 @@ class _HomePageState extends State<HomePage>
         titleTextStyle: TextStyle(fontSize: 21),
         centerTitle: true,
         bottom: TabBar(
+          padding: EdgeInsets.symmetric(vertical: 5),
           controller: _tabController,
           indicatorSize: TabBarIndicatorSize.tab,
           tabs: [
@@ -52,8 +55,8 @@ class _HomePageState extends State<HomePage>
     return TabBarView(
       controller: _tabController,
       children: [
-        ProfilePage(_height, _width),
-        ProfilePage(_height, _width),
+        SearchPage(_height, _width),
+        RecentConversationPage(height: _height, width: _width),
         ProfilePage(_height, _width),
       ],
     );
