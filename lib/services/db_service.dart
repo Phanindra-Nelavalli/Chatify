@@ -1,3 +1,4 @@
+import 'package:chatify/models/contact.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DBService {
@@ -26,5 +27,12 @@ class DBService {
     } catch (e) {
       print(e);
     }
+  }
+
+  Stream<Contact> getUserDetails(String _userID) {
+    var _ref = _db.collection(_Usercollection).doc(_userID);
+    return _ref.get().asStream().map((_snapshot) {
+      return Contact.fromFirestore(_snapshot);
+    });
   }
 }

@@ -47,7 +47,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
         _auth = Provider.of<AuthProvider>(_context);
         return Container(
           height: _deviceheight * 0.75,
-          width: _devicewidth,
           padding: EdgeInsets.symmetric(horizontal: _devicewidth * 0.10),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -216,34 +215,32 @@ class _RegistrationPageState extends State<RegistrationPage> {
     return _auth.status != AuthStatus.Authenticating
         ? Container(
           height: _deviceheight * 0.06,
-          color: Colors.blue,
-          child: Align(
-            alignment: Alignment.center,
-            child: MaterialButton(
-              onPressed: () {
-                if (_formKey.currentState!.validate() && _image != null) {
-                  _auth.createUserWithEmailAndPassword(_email, _password, (
-                    String _uid,
-                  ) async {
-                    var _result = await CloudStorageService.instance
-                        .uploadProfileImage(_uid, (_image?.file.path)!);
-                    var snapshot = await _result;
-                    var _imageURL = await snapshot.ref.getDownloadURL();
-                    await DBService.instance.createUserInDB(
-                      _uid,
-                      _name,
-                      _email,
-                      _imageURL,
-                    );
-                  });
-                }
-              },
-              child: Text(
-                "REGISTER",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
+          width: _devicewidth,
+          child: MaterialButton(
+            onPressed: () {
+              if (_formKey.currentState!.validate() && _image != null) {
+                _auth.createUserWithEmailAndPassword(_email, _password, (
+                  String _uid,
+                ) async {
+                  var _result = await CloudStorageService.instance
+                      .uploadProfileImage(_uid, (_image?.file.path)!);
+                  var snapshot = await _result;
+                  var _imageURL = await snapshot.ref.getDownloadURL();
+                  await DBService.instance.createUserInDB(
+                    _uid,
+                    _name,
+                    _email,
+                    _imageURL,
+                  );
+                });
+              }
+            },
+            color: Colors.blue,
+            child: Text(
+              "REGISTER",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
