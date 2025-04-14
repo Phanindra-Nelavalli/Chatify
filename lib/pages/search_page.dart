@@ -89,7 +89,7 @@ class _SearchPageState extends State<SearchPage> {
               ? ListView.builder(
                 itemCount: _usersData!.length,
                 itemBuilder: (_context, _index) {
-                  var _userData = _usersData![_index];
+                  var _userData = _usersData[_index];
                   var _currentTime = DateTime.now();
 
                   var _isUserActive =

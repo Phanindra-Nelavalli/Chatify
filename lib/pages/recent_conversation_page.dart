@@ -1,5 +1,7 @@
 import 'package:chatify/models/converstaion.dart';
+import 'package:chatify/pages/conversations_page.dart';
 import 'package:chatify/services/db_service.dart';
+import 'package:chatify/services/navigation_service.dart';
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -42,7 +44,21 @@ class RecentConversationPage extends StatelessWidget {
                       itemCount: _data.length,
                       itemBuilder: (_context, _index) {
                         return ListTile(
-                          onTap: () {},
+                          onTap: () async {
+                            await Future.delayed(Duration(milliseconds: 200));
+                            await NavigationService.instance.navigateToRoute(
+                              MaterialPageRoute(
+                                builder: (BuildContext _context) {
+                                  return ConversationsPage(
+                                    _data[_index].conversationID,
+                                    _data[_index].id,
+                                    _data[_index].image,
+                                    _data[_index].name,
+                                  );
+                                },
+                              ),
+                            );
+                          },
                           title: Text(_data[_index].name),
                           subtitle: Text(_data[_index].lastMessage),
                           leading: Container(
@@ -82,17 +98,10 @@ class RecentConversationPage extends StatelessWidget {
       mainAxisSize: MainAxisSize.max,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
+        Text("Last Message", style: TextStyle(fontSize: 15)),
         Text(
           timeago.format(_lastMesasageTimestamp.toDate()),
           style: TextStyle(fontSize: 15),
-        ),
-        Container(
-          height: 12,
-          width: 12,
-          decoration: BoxDecoration(
-            color: Colors.blue,
-            borderRadius: BorderRadius.circular(100),
-          ),
         ),
       ],
     );
