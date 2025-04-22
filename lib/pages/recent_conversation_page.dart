@@ -12,6 +12,7 @@ import '../providers/auth_provider.dart';
 class RecentConversationPage extends StatelessWidget {
   final double height;
   final double width;
+  final String _imageURL = "https://firebasestorage.googleapis.com/";
 
   RecentConversationPage({required this.height, required this.width});
 
@@ -60,7 +61,21 @@ class RecentConversationPage extends StatelessWidget {
                             );
                           },
                           title: Text(_data[_index].name),
-                          subtitle: Text(_data[_index].lastMessage),
+                          subtitle:
+                              _data[_index].lastMessage.contains(_imageURL)
+                                  ? Row(
+                                    children: [
+                                      Icon(
+                                        Icons.image_outlined,
+                                        size: 16,
+                                        color: Colors.grey,
+                                      ),
+                                      SizedBox(width: 5),
+                                      Text("Image"),
+                                    ],
+                                  )
+                                  : Text(_data[_index].lastMessage),
+
                           leading: Container(
                             height: 50,
                             width: 50,

@@ -1,5 +1,6 @@
 import 'package:chatify/models/contact.dart';
 import 'package:chatify/models/converstaion.dart';
+import 'package:chatify/models/message.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DBService {
@@ -35,6 +36,58 @@ class DBService {
   Future<void> updateUserLastSeen(String _userID) {
     var _ref = _db.collection(_Usercollection).doc(_userID);
     return _ref.update({"lastseen": Timestamp.now()});
+  }
+
+  Future<void> sendMessage(String _conversationID, Message _message) {
+    var _ref = _db.collection(_ConversationsCollection).doc(_conversationID);
+    var _messageType = "";
+    switch (_message.type) {
+      case MessageType.Text:
+        _messageType = "text";
+        break;
+      case MessageType.Image:
+        _messageType = "image";
+        break;
+    }
+    return _ref.update({
+      "messages": FieldValue.arrayUnion([
+        {
+          "senderID": _message.senderID,
+          "timestamp": _message.timestamp,
+          "message": _message.message,
+          "type": _messageType,
+        },
+      ]),
+    });
+  }
+
+  Future<void> createOrGetConversation(
+    String _currentUserId,
+    String _recepientId,
+    Future<void> onSuccess(String _conversationId),
+  ) async {
+    var _ref = _db.collection(_ConversationsCollection);
+    var _userConversationCollectionRef = _db
+        .collection(_Usercollection)
+        .doc(_currentUserId)
+        .collection(_ConversationsCollection);
+    try {
+      var conversation =
+          await _userConversationCollectionRef.doc(_recepientId).get();
+      if (conversation.exists) {
+        return onSuccess(conversation.data()?["conversationID"]);
+      } else {
+        var _conversationRef = _ref.doc();
+        await _conversationRef.set({
+          "members": [_currentUserId, _recepientId],
+          "ownerID": _currentUserId,
+          "messages": [],
+        });
+        return onSuccess(_conversationRef.id);
+      }
+    } catch (e) {
+      print(e);
+    }
   }
 
   Stream<Contact> getUserDetails(String _userID) {

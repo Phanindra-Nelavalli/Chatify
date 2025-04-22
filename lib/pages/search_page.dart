@@ -1,5 +1,7 @@
 import 'package:chatify/models/contact.dart';
+import 'package:chatify/pages/conversations_page.dart';
 import 'package:chatify/services/db_service.dart';
+import 'package:chatify/services/navigation_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -98,7 +100,26 @@ class _SearchPageState extends State<SearchPage> {
                       );
 
                   return ListTile(
-                    onTap: () {},
+                    onTap: () {
+                      DBService.instance.createOrGetConversation(
+                        _auth.user!.uid,
+                        _userData.id,
+                        (String _conversationId) async{
+                          NavigationService.instance.navigateToRoute(
+                            MaterialPageRoute(
+                              builder: (_context) {
+                                return ConversationsPage(
+                                  _conversationId,
+                                  _userData.id,
+                                  _userData.image,
+                                  _userData.name,
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      );
+                    },
                     title: Text(_userData.name),
                     leading: Container(
                       height: 50,

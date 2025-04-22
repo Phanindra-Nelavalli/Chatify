@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:chatify/models/converstaion.dart';
+import 'package:chatify/models/message.dart';
+import 'package:chatify/pages/FullScreenInageView.dart';
+import 'package:chatify/services/cloud_storage_service.dart';
 import 'package:chatify/services/db_service.dart';
 import 'package:chatify/services/media_service.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -30,6 +35,9 @@ class ConversationsPage extends StatefulWidget {
 class _ConversationPageState extends State<ConversationsPage> {
   late double _height;
   late double _width;
+  String _messageText = "";
+  ScrollController _listViewController = ScrollController();
+  GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   late AuthProvider _auth;
   @override
@@ -84,33 +92,55 @@ class _ConversationPageState extends State<ConversationsPage> {
       child: StreamBuilder<Conversations>(
         stream: DBService.instance.getConversation(this.widget.conversationID),
         builder: (BuildContext _context, _snapshot) {
+          Timer(Duration(milliseconds: 50), () {
+            _listViewController.jumpTo(
+              _listViewController.position.maxScrollExtent,
+            );
+          });
           var _conversationData = _snapshot.data;
           if (_conversationData != null) {
-            return ListView.builder(
-              itemCount: _conversationData.messages.length,
-              itemBuilder: (BuildContext _context, int _index) {
-                var _messages = _conversationData.messages[_index];
-                bool _isOwnerMessage = _messages.senderID == _auth.user?.uid;
-                return Padding(
-                  padding: EdgeInsets.only(top: 10, left: 10, right: 10),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.max,
-                    mainAxisAlignment:
-                        _isOwnerMessage
-                            ? MainAxisAlignment.end
-                            : MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      _textMessageBubble(
-                        _isOwnerMessage,
-                        _messages.message,
-                        _messages.timestamp,
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
+            if (_conversationData.messages.length != 0) {
+              return ListView.builder(
+                controller: _listViewController,
+                itemCount: _conversationData.messages.length,
+                itemBuilder: (BuildContext _context, int _index) {
+                  var _messages = _conversationData.messages[_index];
+                  bool _isOwnerMessage = _messages.senderID == _auth.user?.uid;
+                  return Padding(
+                    padding: EdgeInsets.only(top: 10, left: 10, right: 10),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.max,
+                      mainAxisAlignment:
+                          _isOwnerMessage
+                              ? MainAxisAlignment.end
+                              : MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        _messages.type == MessageType.Text
+                            ? _textMessageBubble(
+                              _isOwnerMessage,
+                              _messages.message,
+                              _messages.timestamp,
+                            )
+                            : _imageMessageBubble(
+                              _isOwnerMessage,
+                              _messages.message,
+                              _messages.timestamp,
+                            ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            } else {
+              return Align(
+                alignment: Alignment.center,
+                child: Text(
+                  "No Conversations Yet!",
+                  style: TextStyle(color: Colors.white60),
+                ),
+              );
+            }
           } else {
             return SpinKitWanderingCubes(color: Colors.blue, size: 50);
           }
@@ -129,7 +159,7 @@ class _ConversationPageState extends State<ConversationsPage> {
             ? [Colors.blue, Color.fromRGBO(42, 117, 188, 1)]
             : [Color.fromRGBO(69, 69, 69, 1), Color.fromRGBO(43, 43, 43, 1)];
     return Container(
-      height: _height * 0.07,
+      height: _height * 0.07 + (_message.length / 20 * 5.0),
       width: _width * 0.75,
       padding: EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
@@ -159,6 +189,65 @@ class _ConversationPageState extends State<ConversationsPage> {
     );
   }
 
+  Widget _imageMessageBubble(
+    bool _isOwnerMessage,
+    String _imageURL,
+    Timestamp _timestamp,
+  ) {
+    List<Color> _colorScheme =
+        _isOwnerMessage
+            ? [Colors.blue, Color.fromRGBO(42, 117, 188, 1)]
+            : [Color.fromRGBO(69, 69, 69, 1), Color.fromRGBO(43, 43, 43, 1)];
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: _colorScheme,
+          stops: [0.30, 0.70],
+          begin: Alignment.bottomLeft,
+          end: Alignment.topRight,
+        ),
+        borderRadius: BorderRadius.all(Radius.circular(10)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisSize: MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FullScreenImageView(imageUrl: _imageURL),
+                ),
+              );
+            },
+            child: Container(
+              height: _height * 0.30,
+              width: _width * 0.40,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                image: DecorationImage(
+                  image: NetworkImage(_imageURL),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomRight,
+            child: Text(
+              timeago.format(_timestamp.toDate()),
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _messageField(BuildContext _context) {
     return Container(
       height: _height * 0.08,
@@ -170,15 +259,18 @@ class _ConversationPageState extends State<ConversationsPage> {
         horizontal: _height * 0.01,
         vertical: _width * 0.05,
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        mainAxisSize: MainAxisSize.max,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _messageTextField(),
-          _sendButton(_context),
-          _mediaAccessButton(),
-        ],
+      child: Form(
+        key: _formKey,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisSize: MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _messageTextField(),
+            _sendButton(_context),
+            _mediaAccessButton(),
+          ],
+        ),
       ),
     );
   }
@@ -194,7 +286,14 @@ class _ConversationPageState extends State<ConversationsPage> {
           }
           return null;
         },
-        onSaved: (_input) {},
+        onChanged: (_input) {
+          _formKey.currentState?.save();
+        },
+        onSaved: (_input) {
+          setState(() {
+            _messageText = _input ?? '';
+          });
+        },
         decoration: InputDecoration(
           hintText: "Message",
           border: OutlineInputBorder(borderSide: BorderSide.none),
@@ -210,7 +309,21 @@ class _ConversationPageState extends State<ConversationsPage> {
       child: IconButton(
         icon: Icon(Icons.send),
         color: Colors.white,
-        onPressed: () {},
+        onPressed: () {
+          if (_formKey.currentState!.validate()) {
+            DBService.instance.sendMessage(
+              this.widget.conversationID,
+              Message(
+                message: _messageText,
+                senderID: _auth.user!.uid,
+                timestamp: Timestamp.now(),
+                type: MessageType.Text,
+              ),
+            );
+          }
+          _formKey.currentState?.reset();
+          FocusScope.of(_context).unfocus();
+        },
       ),
     );
   }
@@ -220,8 +333,19 @@ class _ConversationPageState extends State<ConversationsPage> {
       height: _height * 0.05,
       width: _height * 0.05,
       child: FloatingActionButton(
-        onPressed: () {
-          MediaService.instance.getImageFromLibrary();
+        onPressed: () async {
+          var _image = await MediaService.instance.getImageFromLibrary();
+          String _imageURL = await CloudStorageService.instance
+              .uploadMediaMessage(_auth.user!.uid, _image);
+          await DBService.instance.sendMessage(
+            this.widget.conversationID,
+            Message(
+              message: _imageURL,
+              senderID: _auth.user!.uid,
+              timestamp: Timestamp.now(),
+              type: MessageType.Image,
+            ),
+          );
         },
         shape: CircleBorder(),
         child: Icon(Icons.camera_alt, color: Colors.white),
