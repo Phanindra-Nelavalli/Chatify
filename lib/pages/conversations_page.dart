@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:chatify/models/converstaion.dart';
 import 'package:chatify/models/message.dart';
 import 'package:chatify/pages/FullScreenInageView.dart';
@@ -12,6 +11,7 @@ import './../providers/auth_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ConversationsPage extends StatefulWidget {
   final String conversationID;
@@ -36,10 +36,31 @@ class _ConversationPageState extends State<ConversationsPage> {
   late double _height;
   late double _width;
   String _messageText = "";
+  SharedPreferences? _prefs;
+  Set<String> _pendingMessageIds = {};
+  bool isImageUploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPendingMessages();
+  }
+
+  Future<void> _loadPendingMessages() async {
+    _prefs = await SharedPreferences.getInstance();
+    final pendingMessageIds =
+        _prefs!.getStringList('pending_msg_${widget.conversationID}') ?? [];
+
+    setState(() {
+      _pendingMessageIds = pendingMessageIds.toSet();
+    });
+  }
+
   ScrollController _listViewController = ScrollController();
   GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   late AuthProvider _auth;
+
   @override
   Widget build(BuildContext context) {
     _height = MediaQuery.of(context).size.height;
@@ -48,15 +69,13 @@ class _ConversationPageState extends State<ConversationsPage> {
       appBar: AppBar(
         titleSpacing: 0,
         title: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisSize: MainAxisSize.max,
           children: [
             CircleAvatar(
-              backgroundImage: NetworkImage(this.widget.receiverImage),
+              backgroundImage: NetworkImage(widget.receiverImage),
               radius: 15.0,
             ),
             SizedBox(width: 8),
-            Text(this.widget.receiverName),
+            Text(widget.receiverName),
           ],
         ),
       ),
@@ -69,15 +88,15 @@ class _ConversationPageState extends State<ConversationsPage> {
 
   Widget _conversationUI() {
     return Builder(
-      builder: (BuildContext _context) {
-        _auth = Provider.of<AuthProvider>(_context);
+      builder: (BuildContext context) {
+        _auth = Provider.of<AuthProvider>(context);
         return Stack(
           clipBehavior: Clip.none,
           children: [
             _messagesListView(),
             Align(
               alignment: Alignment.bottomCenter,
-              child: _messageField(_context),
+              child: _messageField(context),
             ),
           ],
         );
@@ -86,46 +105,57 @@ class _ConversationPageState extends State<ConversationsPage> {
   }
 
   Widget _messagesListView() {
+    if (_prefs == null) {
+      return Center(child: CircularProgressIndicator());
+    }
+
     return Container(
       height: _height * 0.75,
       width: _width,
       child: StreamBuilder<Conversations>(
-        stream: DBService.instance.getConversation(this.widget.conversationID),
-        builder: (BuildContext _context, _snapshot) {
+        stream: DBService.instance.getConversation(widget.conversationID),
+        builder: (context, snapshot) {
           Timer(Duration(milliseconds: 50), () {
-            _listViewController.jumpTo(
-              _listViewController.position.maxScrollExtent,
-            );
+            if (_listViewController.hasClients) {
+              _listViewController.jumpTo(
+                _listViewController.position.maxScrollExtent,
+              );
+            }
           });
-          var _conversationData = _snapshot.data;
-          if (_conversationData != null) {
-            if (_conversationData.messages.length != 0) {
+
+          var conversationData = snapshot.data;
+
+          if (conversationData != null) {
+            if (conversationData.messages.isNotEmpty) {
               return ListView.builder(
                 controller: _listViewController,
-                itemCount: _conversationData.messages.length,
-                itemBuilder: (BuildContext _context, int _index) {
-                  var _messages = _conversationData.messages[_index];
-                  bool _isOwnerMessage = _messages.senderID == _auth.user?.uid;
+                itemCount: conversationData.messages.length,
+                itemBuilder: (context, index) {
+                  var msg = conversationData.messages[index];
+                  bool isOwner = msg.senderID == _auth.user?.uid;
+
+                  String messageId =
+                      "${msg.message}_${msg.timestamp.millisecondsSinceEpoch}";
+
                   return Padding(
                     padding: EdgeInsets.only(top: 10, left: 10, right: 10),
                     child: Row(
-                      mainAxisSize: MainAxisSize.max,
                       mainAxisAlignment:
-                          _isOwnerMessage
+                          isOwner
                               ? MainAxisAlignment.end
                               : MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        _messages.type == MessageType.Text
+                        msg.type == MessageType.Text
                             ? _textMessageBubble(
-                              _isOwnerMessage,
-                              _messages.message,
-                              _messages.timestamp,
+                              isOwner,
+                              msg.message,
+                              msg.timestamp,
+                              _pendingMessageIds.contains(messageId),
                             )
                             : _imageMessageBubble(
-                              _isOwnerMessage,
-                              _messages.message,
-                              _messages.timestamp,
+                              isOwner,
+                              msg.message,
+                              msg.timestamp,
                             ),
                       ],
                     ),
@@ -133,8 +163,7 @@ class _ConversationPageState extends State<ConversationsPage> {
                 },
               );
             } else {
-              return Align(
-                alignment: Alignment.center,
+              return Center(
                 child: Text(
                   "No Conversations Yet!",
                   style: TextStyle(color: Colors.white60),
@@ -150,128 +179,148 @@ class _ConversationPageState extends State<ConversationsPage> {
   }
 
   Widget _textMessageBubble(
-    bool _isOwnerMessage,
-    String _message,
-    Timestamp _timestamp,
+    bool isOwner,
+    String msg,
+    Timestamp time,
+    bool isPending,
   ) {
-    List<Color> _colorScheme =
-        _isOwnerMessage
+    List<Color> colors =
+        isOwner
             ? [Colors.blue, Color.fromRGBO(42, 117, 188, 1)]
             : [Color.fromRGBO(69, 69, 69, 1), Color.fromRGBO(43, 43, 43, 1)];
+
     return Container(
-      height: _height * 0.07 + (_message.length / 20 * 5.0),
+      padding: EdgeInsets.all(10),
       width: _width * 0.75,
-      padding: EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: _colorScheme,
-          stops: [0.30, 0.70],
+          colors: colors,
+          stops: [0.3, 0.7],
           begin: Alignment.bottomLeft,
           end: Alignment.topRight,
         ),
-        borderRadius: BorderRadius.all(Radius.circular(10)),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        mainAxisSize: MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(_message, style: TextStyle(fontSize: 16)),
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Text(
-              timeago.format(_timestamp.toDate()),
-              style: TextStyle(color: Colors.white70),
-            ),
+          Text(msg, style: TextStyle(fontSize: 16)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                timeago.format(time.toDate()),
+                style: TextStyle(color: Colors.white70),
+              ),
+              SizedBox(width: 5),
+              Icon(
+                isPending ? Icons.access_time : Icons.done_all,
+                color: Colors.white70,
+                size: 15,
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _imageMessageBubble(
-    bool _isOwnerMessage,
-    String _imageURL,
-    Timestamp _timestamp,
-  ) {
-    List<Color> _colorScheme =
-        _isOwnerMessage
+  Widget _imageMessageBubble(bool isOwner, String url, Timestamp time) {
+    List<Color> colors =
+        isOwner
             ? [Colors.blue, Color.fromRGBO(42, 117, 188, 1)]
             : [Color.fromRGBO(69, 69, 69, 1), Color.fromRGBO(43, 43, 43, 1)];
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: EdgeInsets.all(10),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: _colorScheme,
-          stops: [0.30, 0.70],
+          colors: colors,
+          stops: [0.3, 0.7],
           begin: Alignment.bottomLeft,
           end: Alignment.topRight,
         ),
-        borderRadius: BorderRadius.all(Radius.circular(10)),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
-        mainAxisSize: MainAxisSize.max,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           GestureDetector(
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => FullScreenImageView(imageUrl: _imageURL),
+                  builder: (_) => FullScreenImageView(imageUrl: url),
                 ),
               );
             },
             child: Container(
-              height: _height * 0.30,
-              width: _width * 0.40,
+              height: _height * 0.3,
+              width: _width * 0.6,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 image: DecorationImage(
-                  image: NetworkImage(_imageURL),
+                  image: NetworkImage(url),
                   fit: BoxFit.cover,
                 ),
               ),
             ),
           ),
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Text(
-              timeago.format(_timestamp.toDate()),
-              style: TextStyle(color: Colors.white70),
-            ),
+          SizedBox(height: 5),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                timeago.format(time.toDate()),
+                style: TextStyle(color: Colors.white70),
+              ),
+              SizedBox(width: 5),
+              Icon(Icons.done_all, color: Colors.white70, size: 15),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _messageField(BuildContext _context) {
+  Widget _messageField(BuildContext context) {
     return Container(
       height: _height * 0.08,
-      decoration: BoxDecoration(
-        color: Color.fromRGBO(43, 43, 43, 1),
-        borderRadius: BorderRadius.circular(100),
-      ),
       margin: EdgeInsets.symmetric(
         horizontal: _height * 0.01,
         vertical: _width * 0.05,
       ),
-      child: Form(
-        key: _formKey,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          mainAxisSize: MainAxisSize.max,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _messageTextField(),
-            _sendButton(_context),
-            _mediaAccessButton(),
-          ],
-        ),
+      decoration: BoxDecoration(
+        color: Color.fromRGBO(43, 43, 43, 1),
+        borderRadius: BorderRadius.circular(100),
       ),
+      child:
+          isImageUploading
+              ? Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SpinKitThreeBounce(color: Colors.white, size: 20.0),
+                    SizedBox(width: 12),
+                    Text(
+                      "Uploading Image...",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+              )
+              : Form(
+                key: _formKey,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _messageTextField(),
+                    _sendButton(context),
+                    _mediaAccessButton(),
+                  ],
+                ),
+              ),
     );
   }
 
@@ -280,19 +329,13 @@ class _ConversationPageState extends State<ConversationsPage> {
       width: _width * 0.55,
       child: TextFormField(
         autocorrect: false,
-        validator: (_input) {
-          if (_input == 0) {
-            return "Please Enter a Message";
-          }
-          return null;
-        },
-        onChanged: (_input) {
-          _formKey.currentState?.save();
-        },
-        onSaved: (_input) {
-          setState(() {
-            _messageText = _input ?? '';
-          });
+        validator:
+            (val) =>
+                val == null || val.trim().isEmpty
+                    ? "Please enter a message"
+                    : null,
+        onChanged: (val) {
+          _messageText = val;
         },
         decoration: InputDecoration(
           hintText: "Message",
@@ -302,27 +345,61 @@ class _ConversationPageState extends State<ConversationsPage> {
     );
   }
 
-  Widget _sendButton(BuildContext _context) {
+  Widget _sendButton(BuildContext context) {
     return Container(
       height: _height * 0.05,
       width: _height * 0.05,
       child: IconButton(
         icon: Icon(Icons.send),
         color: Colors.white,
-        onPressed: () {
+        onPressed: () async {
           if (_formKey.currentState!.validate()) {
-            DBService.instance.sendMessage(
-              this.widget.conversationID,
-              Message(
-                message: _messageText,
-                senderID: _auth.user!.uid,
-                timestamp: Timestamp.now(),
-                type: MessageType.Text,
-              ),
+            _formKey.currentState!.save();
+            String msg = _messageText.trim();
+            _formKey.currentState!.reset();
+            FocusScope.of(context).unfocus();
+
+            // Create a unique message ID with timestamp and content
+            final timestamp = Timestamp.now();
+            final uniqueId = "${msg}_${timestamp.millisecondsSinceEpoch}";
+
+            // Add to pending messages
+            _pendingMessageIds.add(uniqueId);
+            await _prefs!.setStringList(
+              'pending_msg_${widget.conversationID}',
+              _pendingMessageIds.toList(),
             );
+
+            print("Pending messages: ${_pendingMessageIds.toList()}");
+
+            setState(() {}); // show access_time icon immediately
+
+            try {
+              await DBService.instance.sendMessage(
+                widget.conversationID,
+                Message(
+                  message: msg,
+                  senderID: _auth.user!.uid,
+                  timestamp: timestamp,
+                  type: MessageType.Text,
+                ),
+              );
+
+              _pendingMessageIds.remove(uniqueId);
+              await _prefs!.setStringList(
+                'pending_msg_${widget.conversationID}',
+                _pendingMessageIds.toList(),
+              );
+              print(
+                "Pending messages after update: ${_pendingMessageIds.toList()}",
+              );
+
+              setState(() {}); // update icon to done_all
+            } catch (e) {
+              // Optionally handle send error
+              print("Error sending message: $e");
+            }
           }
-          _formKey.currentState?.reset();
-          FocusScope.of(_context).unfocus();
         },
       ),
     );
@@ -334,18 +411,50 @@ class _ConversationPageState extends State<ConversationsPage> {
       width: _height * 0.05,
       child: FloatingActionButton(
         onPressed: () async {
-          var _image = await MediaService.instance.getImageFromLibrary();
-          String _imageURL = await CloudStorageService.instance
-              .uploadMediaMessage(_auth.user!.uid, _image);
-          await DBService.instance.sendMessage(
-            this.widget.conversationID,
-            Message(
-              message: _imageURL,
-              senderID: _auth.user!.uid,
-              timestamp: Timestamp.now(),
-              type: MessageType.Image,
-            ),
-          );
+          setState(() {
+            isImageUploading = true;
+          });
+
+          try {
+            var _image = await MediaService.instance.getImageFromLibrary();
+
+            // ignore: unnecessary_null_comparison
+            if (_image == null) {
+              setState(() {
+                isImageUploading = false;
+              });
+              return;
+            }
+
+            String? _imageURL = await CloudStorageService.instance
+                .uploadMediaMessage(_auth.user!.uid, _image);
+
+            // ignore: unnecessary_null_comparison
+            if (_imageURL == null) {
+              setState(() {
+                isImageUploading = false;
+              });
+              return;
+            }
+
+            await DBService.instance.sendMessage(
+              this.widget.conversationID,
+              Message(
+                message: _imageURL,
+                senderID: _auth.user!.uid,
+                timestamp: Timestamp.now(),
+                type: MessageType.Image,
+              ),
+            );
+          } catch (e) {
+            // Optional: print or log error
+            print("Error selecting or uploading image: $e");
+          } finally {
+            // Always reset upload flag
+            setState(() {
+              isImageUploading = false;
+            });
+          }
         },
         shape: CircleBorder(),
         child: Icon(Icons.camera_alt, color: Colors.white),
