@@ -135,11 +135,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
             borderRadius: BorderRadius.circular(500),
             image: DecorationImage(
               fit: BoxFit.cover,
-              image:
-                  _image ??
-                  NetworkImage(
-                    "https://cdn0.iconfinder.com/data/icons/occupation-002/64/programmer-programming-occupation-avatar-512.png",
-                  ),
+              image: _image ?? AssetImage("assets/default_profile.png"),
             ),
           ),
         ),
