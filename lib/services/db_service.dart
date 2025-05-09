@@ -38,7 +38,7 @@ class DBService {
     return _ref.update({"lastseen": Timestamp.now()});
   }
 
-  Future<void> sendMessage(String _conversationID, Message _message) {
+  Future<void> sendMessage(String _conversationID, Message _message) async {
     var _ref = _db.collection(_ConversationsCollection).doc(_conversationID);
     var _messageType = "";
     switch (_message.type) {
@@ -49,16 +49,23 @@ class DBService {
         _messageType = "image";
         break;
     }
-    return _ref.update({
-      "messages": FieldValue.arrayUnion([
-        {
-          "senderID": _message.senderID,
-          "timestamp": _message.timestamp,
-          "message": _message.message,
-          "type": _messageType,
-        },
-      ]),
-    });
+
+    try {
+      await _ref.update({
+        "messages": FieldValue.arrayUnion([
+          {
+            "senderID": _message.senderID,
+            "timestamp": _message.timestamp,
+            "message": _message.message,
+            "type": _messageType,
+          },
+        ]),
+      });
+
+      // After sending the message
+    } catch (e) {
+      print("Error sending message or offline: $e");
+    }
   }
 
   Future<void> createOrGetConversation(

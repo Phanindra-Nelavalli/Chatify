@@ -55,7 +55,8 @@ dev_dependencies:
   provider: ^6.1.4
   timeago: ^3.7.0
   flutter_launcher_icons: ^0.14.3
-  
+  font_awesome_flutter: ^10.8.0
+  shared_preferences: ^2.5.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -64,7 +65,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/Chatify.jpg"
+  image_path: "assets/Chatify_Icon.jpeg"
 
 flutter:
   # The following line ensures that the Material Icons font is
