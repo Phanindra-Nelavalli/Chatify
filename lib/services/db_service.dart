@@ -33,6 +33,12 @@ class DBService {
     }
   }
 
+  Future<void> updateProfileImage(String uid, String _imageURL) async {
+    return await _db.collection(_Usercollection).doc(uid).update({
+      "image": _imageURL,
+    });
+  }
+
   Future<void> updateUserLastSeen(String _userID) {
     var _ref = _db.collection(_Usercollection).doc(_userID);
     return _ref.update({"lastseen": Timestamp.now()});

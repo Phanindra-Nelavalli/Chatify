@@ -76,7 +76,7 @@ class _LoginPageState extends State<LoginPage> {
           ),
           Text(
             "Please Login to your account",
-            style: TextStyle(fontSize: 25, fontWeight: FontWeight.w100),
+            style: TextStyle(fontSize: 21, fontWeight: FontWeight.w100),
           ),
         ],
       ),
