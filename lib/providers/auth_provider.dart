@@ -10,6 +10,8 @@ enum AuthStatus {
   NotAuthenticated,
   UserNotFound,
   UnAuthenticating,
+  PasswordResetEmailSent,
+  ResetingPassword,
   Error,
 }
 
@@ -38,6 +40,22 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       _autoLogin();
     }
+  }
+
+  void passwordReset(String email) async {
+    status = AuthStatus.ResetingPassword;
+    notifyListeners();
+
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      status = AuthStatus.PasswordResetEmailSent;
+      _snackbarService.showSnackBarSuccess("Password reset email sent");
+    } catch (e) {
+      print(e);
+      status = AuthStatus.Error;
+      _snackbarService.showSnackBarError("Failed to send reset email");
+    }
+    notifyListeners();
   }
 
   void loginWithEmailAndPassword(String _email, String _password) async {
