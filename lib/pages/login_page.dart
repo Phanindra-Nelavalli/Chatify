@@ -45,7 +45,7 @@ class _LoginPageState extends State<LoginPage> {
         SnackbarService.instance.buildContext = _context;
         _auth = Provider.of<AuthProvider>(_context);
         return Container(
-          height: _deviceheight * 0.60,
+          height: _deviceheight * 0.65,
           padding: EdgeInsets.symmetric(horizontal: _devicewidth * 0.10),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -87,7 +87,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _inputForm() {
     return Container(
-      height: _deviceheight * 0.19,
+      height: _deviceheight * 0.23,
       child: Form(
         key: _formKey,
         onChanged: () {
