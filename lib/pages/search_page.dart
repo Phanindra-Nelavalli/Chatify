@@ -104,7 +104,7 @@ class _SearchPageState extends State<SearchPage> {
                       DBService.instance.createOrGetConversation(
                         _auth.user!.uid,
                         _userData.id,
-                        (String _conversationId) async{
+                        (String _conversationId) async {
                           NavigationService.instance.navigateToRoute(
                             MaterialPageRoute(
                               builder: (_context) {
@@ -113,6 +113,8 @@ class _SearchPageState extends State<SearchPage> {
                                   _userData.id,
                                   _userData.image,
                                   _userData.name,
+                                  _auth.user!.uid,
+                                  // Replace 'null' with the appropriate value for the missing argument.
                                 );
                               },
                             ),

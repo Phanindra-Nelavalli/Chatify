@@ -9,6 +9,9 @@ class ConverstaionSnippet {
   final String lastMessage;
   final int unseenCount;
   final Timestamp timestamp;
+  final Timestamp lastVisit;
+  final bool isInchat;
+  final String senderId;
 
   ConverstaionSnippet({
     required this.id,
@@ -18,6 +21,9 @@ class ConverstaionSnippet {
     required this.lastMessage,
     required this.unseenCount,
     required this.timestamp,
+    required this.isInchat,
+    required this.lastVisit,
+    required this.senderId
   });
 
   factory ConverstaionSnippet.fromFirestore(DocumentSnapshot _snapshot) {
@@ -30,6 +36,9 @@ class ConverstaionSnippet {
       lastMessage: _data['lastMessage'] ?? "",
       unseenCount: _data['unseencount'] ?? "",
       timestamp: _data['timestamp'] ?? Timestamp.now(),
+      lastVisit: _data['lastVisit'] ?? Timestamp.now(),
+       isInchat: _data['isInChat'] ??false,
+       senderId:_data['senderId'] ?? ","
     );
   }
 }

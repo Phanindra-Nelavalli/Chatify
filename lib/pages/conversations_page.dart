@@ -18,12 +18,14 @@ class ConversationsPage extends StatefulWidget {
   final String receiverID;
   final String receiverName;
   final String receiverImage;
+  final String uid;
 
   ConversationsPage(
     this.conversationID,
     this.receiverID,
     this.receiverImage,
     this.receiverName,
+    this.uid,
   );
 
   @override
@@ -44,6 +46,7 @@ class _ConversationPageState extends State<ConversationsPage> {
   void initState() {
     super.initState();
     _loadPendingMessages();
+    updateLastVisit(true);
   }
 
   Future<void> _loadPendingMessages() async {
@@ -56,32 +59,52 @@ class _ConversationPageState extends State<ConversationsPage> {
     });
   }
 
+  void updateLastVisit(bool isInChat) async {
+    await DBService.instance.updateLastVisit(
+      widget.uid,
+      widget.receiverID,
+      isInChat,
+    );
+  }
+
   ScrollController _listViewController = ScrollController();
   GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   late AuthProvider _auth;
 
   @override
+  void dispose() {
+    updateLastVisit(false);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     _height = MediaQuery.of(context).size.height;
     _width = MediaQuery.of(context).size.width;
-    return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundImage: NetworkImage(widget.receiverImage),
-              radius: 15.0,
-            ),
-            SizedBox(width: 8),
-            Text(widget.receiverName),
-          ],
+    return WillPopScope(
+      onWillPop: () async {
+        updateLastVisit(false);
+        return true;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          titleSpacing: 0,
+          title: Row(
+            children: [
+              CircleAvatar(
+                backgroundImage: NetworkImage(widget.receiverImage),
+                radius: 15.0,
+              ),
+              SizedBox(width: 8),
+              Text(widget.receiverName),
+            ],
+          ),
         ),
-      ),
-      body: ChangeNotifierProvider<AuthProvider>.value(
-        value: AuthProvider.instance,
-        child: _conversationUI(),
+        body: ChangeNotifierProvider<AuthProvider>.value(
+          value: AuthProvider.instance,
+          child: _conversationUI(),
+        ),
       ),
     );
   }
@@ -112,67 +135,75 @@ class _ConversationPageState extends State<ConversationsPage> {
     return Container(
       height: _height * 0.75,
       width: _width,
-      child: StreamBuilder<Conversations>(
-        stream: DBService.instance.getConversation(widget.conversationID),
-        builder: (context, snapshot) {
-          Timer(Duration(milliseconds: 50), () {
-            if (_listViewController.hasClients) {
-              _listViewController.jumpTo(
-                _listViewController.position.maxScrollExtent,
-              );
-            }
-          });
+      child: StreamBuilder(
+        stream: DBService.instance.getUserConversation(_auth.user!.uid),
+        builder: (_context, metaSnapshot) {
+          if (!metaSnapshot.hasData) return Container();
 
-          var conversationData = snapshot.data;
+          return StreamBuilder<Conversations>(
+            stream: DBService.instance.getConversation(widget.conversationID),
+            builder: (context, snapshot) {
+              Timer(Duration(milliseconds: 50), () {
+                if (_listViewController.hasClients) {
+                  _listViewController.jumpTo(
+                    _listViewController.position.maxScrollExtent,
+                  );
+                }
+              });
 
-          if (conversationData != null) {
-            if (conversationData.messages.isNotEmpty) {
-              return ListView.builder(
-                controller: _listViewController,
-                itemCount: conversationData.messages.length,
-                itemBuilder: (context, index) {
-                  var msg = conversationData.messages[index];
-                  bool isOwner = msg.senderID == _auth.user?.uid;
+              var conversationData = snapshot.data;
 
-                  String messageId =
-                      "${msg.message}_${msg.timestamp.millisecondsSinceEpoch}";
+              if (conversationData != null) {
+                if (conversationData.messages.isNotEmpty) {
+                  return ListView.builder(
+                    controller: _listViewController,
+                    itemCount: conversationData.messages.length,
+                    itemBuilder: (context, index) {
+                      var msg = conversationData.messages[index];
+                      bool isOwner = msg.senderID == _auth.user?.uid;
 
-                  return Padding(
-                    padding: EdgeInsets.only(top: 10, left: 10, right: 10),
-                    child: Row(
-                      mainAxisAlignment:
-                          isOwner
-                              ? MainAxisAlignment.end
-                              : MainAxisAlignment.start,
-                      children: [
-                        msg.type == MessageType.Text
-                            ? _textMessageBubble(
-                              isOwner,
-                              msg.message,
-                              msg.timestamp,
-                              _pendingMessageIds.contains(messageId),
-                            )
-                            : _imageMessageBubble(
-                              isOwner,
-                              msg.message,
-                              msg.timestamp,
-                            ),
-                      ],
+                      // Generate a consistent message ID for tracking
+                      String messageId =
+                          "${msg.message}_${msg.timestamp.millisecondsSinceEpoch}";
+
+                      return Padding(
+                        padding: EdgeInsets.only(top: 10, left: 10, right: 10),
+                        child: Row(
+                          mainAxisAlignment:
+                              isOwner
+                                  ? MainAxisAlignment.end
+                                  : MainAxisAlignment.start,
+                          children: [
+                            msg.type == MessageType.Text
+                                ? _textMessageBubble(
+                                  isOwner,
+                                  msg.message,
+                                  msg.timestamp,
+                                  _pendingMessageIds.contains(messageId),
+                                )
+                                : _imageMessageBubble(
+                                  isOwner,
+                                  msg.message,
+                                  msg.timestamp,
+                                ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                } else {
+                  return Center(
+                    child: Text(
+                      "No Conversations Yet!",
+                      style: TextStyle(color: Colors.white60),
                     ),
                   );
-                },
-              );
-            } else {
-              return Center(
-                child: Text(
-                  "No Conversations Yet!",
-                  style: TextStyle(color: Colors.white60),
-                ),
-              );
-            }
-          } else {
-            return SpinKitWanderingCubes(color: Colors.blue, size: 50);
-          }
+                }
+              } else {
+                return SpinKitWanderingCubes(color: Colors.blue, size: 50);
+              }
+            },
+          );
         },
       ),
     );
@@ -213,15 +244,45 @@ class _ConversationPageState extends State<ConversationsPage> {
                 style: TextStyle(color: Colors.white70),
               ),
               SizedBox(width: 5),
-              Icon(
-                isPending ? Icons.access_time : Icons.done_all,
-                color: Colors.white70,
-                size: 15,
-              ),
+              if (isOwner) _buildMessageStatusIcon(time, isPending),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMessageStatusIcon(Timestamp messageTime, bool isPending) {
+    // If message is pending, show clock icon
+    if (isPending) {
+      return Icon(Icons.access_time, color: Colors.white70, size: 15);
+    }
+
+    // Otherwise use StreamBuilder to get real-time updates of receiver's status
+    return StreamBuilder<ConverstaionSnippet>(
+      stream:
+          DBService.instance
+              .getReceiverStatus(widget.uid, widget.receiverID)
+              .where((event) => event != null)
+              .cast<ConverstaionSnippet>(),
+      builder: (context, snapshot) {
+        bool isSeen = false;
+        bool isInChat = false;
+
+        if (snapshot.hasData && snapshot.data != null) {
+          final receiverData = snapshot.data!;
+          isSeen =
+              receiverData.lastVisit.microsecondsSinceEpoch >
+              messageTime.microsecondsSinceEpoch;
+          isInChat = receiverData.isInchat;
+        }
+       
+        return Icon(
+          Icons.done_all,
+          color: (isSeen || isInChat) ? Colors.green : Colors.white70,
+          size: 15,
+        );
+      },
     );
   }
 
@@ -276,7 +337,7 @@ class _ConversationPageState extends State<ConversationsPage> {
                 style: TextStyle(color: Colors.white70),
               ),
               SizedBox(width: 5),
-              Icon(Icons.done_all, color: Colors.white70, size: 15),
+              if (isOwner) _buildMessageStatusIcon(time, false),
             ],
           ),
         ],
@@ -370,9 +431,7 @@ class _ConversationPageState extends State<ConversationsPage> {
               _pendingMessageIds.toList(),
             );
 
-            print("Pending messages: ${_pendingMessageIds.toList()}");
-
-            setState(() {}); // show access_time icon immediately
+            setState(() {}); // show pending icon immediately
 
             try {
               await DBService.instance.sendMessage(
@@ -384,17 +443,15 @@ class _ConversationPageState extends State<ConversationsPage> {
                   type: MessageType.Text,
                 ),
               );
+              await DBService.instance.updateSenderId(widget.uid, widget.receiverID);
 
               _pendingMessageIds.remove(uniqueId);
               await _prefs!.setStringList(
                 'pending_msg_${widget.conversationID}',
                 _pendingMessageIds.toList(),
               );
-              print(
-                "Pending messages after update: ${_pendingMessageIds.toList()}",
-              );
 
-              setState(() {}); // update icon to done_all
+              setState(() {}); // update icon to delivered
             } catch (e) {
               // Optionally handle send error
               print("Error sending message: $e");
@@ -446,6 +503,7 @@ class _ConversationPageState extends State<ConversationsPage> {
                 type: MessageType.Image,
               ),
             );
+            await DBService.instance.updateSenderId(widget.uid, widget.receiverID);
           } catch (e) {
             // Optional: print or log error
             print("Error selecting or uploading image: $e");
