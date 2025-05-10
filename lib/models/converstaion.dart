@@ -23,7 +23,7 @@ class ConverstaionSnippet {
     required this.timestamp,
     required this.isInchat,
     required this.lastVisit,
-    required this.senderId
+    required this.senderId,
   });
 
   factory ConverstaionSnippet.fromFirestore(DocumentSnapshot _snapshot) {
@@ -36,9 +36,11 @@ class ConverstaionSnippet {
       lastMessage: _data['lastMessage'] ?? "",
       unseenCount: _data['unseencount'] ?? "",
       timestamp: _data['timestamp'] ?? Timestamp.now(),
-      lastVisit: _data['lastVisit'] ?? Timestamp.now(),
-       isInchat: _data['isInChat'] ??false,
-       senderId:_data['senderId'] ?? ","
+      lastVisit:
+          _data['lastVisit'] ??
+          Timestamp.fromDate(DateTime.now().subtract(Duration(hours: 1))),
+      isInchat: _data['isInChat'] ?? false,
+      senderId: _data['senderId'] ?? ",",
     );
   }
 }
