@@ -1,6 +1,7 @@
 import 'package:chatify/models/contact.dart';
 import 'package:chatify/models/converstaion.dart';
 import 'package:chatify/models/message.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DBService {
@@ -37,6 +38,34 @@ class DBService {
     return await _db.collection(_Usercollection).doc(uid).update({
       "image": _imageURL,
     });
+  }
+
+  Future<void> updateLastVisit(
+    String uid,
+    String receiveruid,
+    bool isInChat,
+  ) async {
+    return await _db
+        .collection(_Usercollection)
+        .doc(receiveruid)
+        .collection(_ConversationsCollection)
+        .doc(uid)
+        .update({"lastVisit": Timestamp.now(), "isInChat": isInChat});
+  }
+
+  Future<void> updateSenderId(String uid, String receiveruid) async {
+    await _db
+        .collection(_Usercollection)
+        .doc(receiveruid)
+        .collection(_ConversationsCollection)
+        .doc(uid)
+        .update({"senderId": uid});
+    await _db
+        .collection(_Usercollection)
+        .doc(uid)
+        .collection(_ConversationsCollection)
+        .doc(receiveruid)
+        .update({"senderId": uid});
   }
 
   Future<void> updateUserLastSeen(String _userID) {
@@ -120,6 +149,26 @@ class DBService {
         return ConverstaionSnippet.fromFirestore(_doc);
       }).toList();
     });
+  }
+
+  Stream<ConverstaionSnippet?> getReceiverStatus(
+    String userId,
+    String receiverId,
+  ) {
+    return _db
+        .collection(_Usercollection)
+        .doc(userId) // The receiver's user document
+        .collection(_ConversationsCollection)
+        .doc(receiverId) // The specific conversation
+        .snapshots()
+        .map((doc) {
+          if (doc.exists) {
+            return ConverstaionSnippet.fromFirestore(doc);
+          } else {
+            // Return null if the document doesn't exist
+            return null;
+          }
+        });
   }
 
   Stream<List<Contact>> getUsersInDB(String _searchName) {

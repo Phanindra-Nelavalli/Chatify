@@ -100,6 +100,7 @@ class _RecentConversationPageState extends State<RecentConversationPage> {
             builder: (_context, _snapshot) {
               var _data = _snapshot.data;
               if (_data != null) {
+                _data.sort((a, b) => b.timestamp.compareTo(a.timestamp));
                 return _data.length != 0
                     ? ListView.builder(
                       itemCount: _data.length,
@@ -107,22 +108,16 @@ class _RecentConversationPageState extends State<RecentConversationPage> {
                         final convo = _data[_index];
                         final convoId = convo.conversationID;
 
-                        // Check if there are any pending messages for this conversation
                         final hasPendingMessages =
                             _pendingMessagesByConvo.containsKey(convoId) &&
                             _pendingMessagesByConvo[convoId]!.isNotEmpty;
 
-                        // Get the timestamp of the last pending message
-                        // ignore: unused_local_variable
-                        String? lastPendingMsgTime;
                         String? lastPendingMsgContent;
 
                         if (hasPendingMessages) {
-                          // Find the newest pending message by timestamp
                           final pendingMessages =
                               _pendingMessagesByConvo[convoId]!.toList();
                           pendingMessages.sort((a, b) {
-                            // Extract timestamps from message IDs (format: message_timestamp)
                             final aTimestamp = int.tryParse(a.split('_').last);
                             final bTimestamp = int.tryParse(b.split('_').last);
                             return (bTimestamp ?? 0).compareTo(aTimestamp ?? 0);
@@ -130,7 +125,7 @@ class _RecentConversationPageState extends State<RecentConversationPage> {
 
                           if (pendingMessages.isNotEmpty) {
                             final lastPending = pendingMessages.first;
-                            // Extract content - everything before the last underscore
+
                             final lastUnderscoreIndex = lastPending.lastIndexOf(
                               '_',
                             );
@@ -146,10 +141,8 @@ class _RecentConversationPageState extends State<RecentConversationPage> {
                         String displayMessage;
                         bool showPending = false;
 
-                        // Determine what message to display and if it's pending
                         if (hasPendingMessages &&
                             lastPendingMsgContent != null) {
-                          // If there's a pending message that's newer than the last message in Firestore
                           displayMessage = lastPendingMsgContent;
                           showPending = true;
                         } else {
@@ -169,12 +162,12 @@ class _RecentConversationPageState extends State<RecentConversationPage> {
                                     convo.id,
                                     convo.image,
                                     convo.name,
+                                    _auth.user!.uid,
                                   );
                                 },
                               ),
                             );
 
-                            // Refresh state after returning from conversation
                             if (mounted) {
                               _loadPendingMessages();
                             }
@@ -184,11 +177,21 @@ class _RecentConversationPageState extends State<RecentConversationPage> {
                               isImage
                                   ? Row(
                                     children: [
-                                      Icon(
-                                        Icons.done_all,
-                                        size: 16,
-                                        color: Colors.grey,
-                                      ),
+                                      convo.senderId != _auth.user!.uid
+                                          ? Icon(
+                                            Icons.done_all,
+                                            size: 16,
+                                            color:
+                                                convo
+                                                            .lastVisit
+                                                            .microsecondsSinceEpoch >
+                                                        convo
+                                                            .timestamp
+                                                            .microsecondsSinceEpoch
+                                                    ? Colors.green
+                                                    : Colors.white70,
+                                          )
+                                          : Container(),
                                       SizedBox(width: 5),
                                       Icon(
                                         Icons.image_outlined,
@@ -201,23 +204,34 @@ class _RecentConversationPageState extends State<RecentConversationPage> {
                                   )
                                   : Row(
                                     children: [
-                                      showPending
-                                          ? Icon(
-                                            Icons.access_time,
-                                            color: Colors.white70,
-                                            size: 15,
-                                          )
-                                          : Icon(
-                                            Icons.done_all,
-                                            color: Colors.white70,
-                                            size: 15,
-                                          ),
+                                      convo.senderId == _auth.user!.uid
+                                          ? showPending
+                                              ? Icon(
+                                                Icons.access_time,
+                                                color: Colors.white70,
+                                                size: 15,
+                                              )
+                                              : Icon(
+                                                Icons.done_all,
+                                                color:
+                                                    convo
+                                                                .lastVisit
+                                                                .microsecondsSinceEpoch >
+                                                            convo
+                                                                .timestamp
+                                                                .microsecondsSinceEpoch
+                                                        ? Colors.green
+                                                        : Colors.white70,
+                                                size: 15,
+                                              )
+                                          : Container(),
                                       SizedBox(width: 5),
                                       Expanded(
                                         child: Text(
                                           displayMessage,
                                           overflow: TextOverflow.ellipsis,
                                           maxLines: 1,
+                                          
                                         ),
                                       ),
                                     ],
