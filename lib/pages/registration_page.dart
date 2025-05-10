@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:chatify/providers/auth_provider.dart';
 import 'package:chatify/services/cloud_storage_service.dart';
 import 'package:chatify/services/db_service.dart';
 import 'package:chatify/services/media_service.dart';
 import 'package:chatify/services/navigation_service.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 
@@ -25,6 +28,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
   late String _name;
   late String _email;
   late String _password;
+  bool toggleVisibility = true;
 
   @override
   Widget build(BuildContext context) {
@@ -121,11 +125,69 @@ class _RegistrationPageState extends State<RegistrationPage> {
       alignment: Alignment.center,
       child: GestureDetector(
         onTap: () async {
-          MediaService.instance.getImageFromLibrary().then((file) {
-            setState(() {
-              _image = FileImage(file);
-            });
-          });
+          try {
+            final pickedFile =
+                await MediaService.instance.getImageFromLibrary();
+            // ignore: unnecessary_null_comparison
+            if (pickedFile != null) {
+              try {
+                final croppedFile = await ImageCropper().cropImage(
+                  sourcePath: pickedFile.path,
+                  compressQuality: 70,
+                  uiSettings: [
+                    AndroidUiSettings(
+                      toolbarTitle: 'Crop Image',
+                      toolbarColor: Colors.blue,
+                      toolbarWidgetColor: Colors.black,
+                      initAspectRatio: CropAspectRatioPreset.square,
+                      lockAspectRatio: false,
+                      aspectRatioPresets: [
+                        CropAspectRatioPreset.original,
+                        CropAspectRatioPreset.square,
+                        CropAspectRatioPreset.ratio4x3,
+                        CropAspectRatioPreset.ratio16x9,
+                        CropAspectRatioPreset.ratio3x2,
+                      ],
+                    ),
+                    IOSUiSettings(
+                      title: 'Crop Image',
+                      aspectRatioPresets: [
+                        CropAspectRatioPreset.original,
+                        CropAspectRatioPreset.square,
+                        CropAspectRatioPreset.ratio4x3,
+                        CropAspectRatioPreset.ratio7x5,
+                        CropAspectRatioPreset.ratio3x2,
+                        CropAspectRatioPreset.ratio5x3,
+                      ],
+                    ),
+                  ],
+                );
+                if (croppedFile != null) {
+                  final file = File(croppedFile.path);
+                  setState(() {
+                    _image = FileImage(file);
+                  });
+                }
+              } catch (e) {
+                // Show user-friendly error message for cropping failures
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to crop image: ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                print('Image cropping error: $e');
+              }
+            }
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to pick image: ${e.toString()}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            print('Image picking error: $e');
+          }
         },
         child: Container(
           height: _deviceheight * 0.10,
@@ -189,7 +251,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
   Widget _passwordTextField() {
     return TextFormField(
       autocorrect: false,
-      obscureText: true,
+      obscureText: toggleVisibility,
       validator: (_input) {
         return _input?.length != 0 ? null : "Enter a password";
       },
@@ -200,6 +262,16 @@ class _RegistrationPageState extends State<RegistrationPage> {
       },
       decoration: InputDecoration(
         hintText: "Password",
+        suffixIcon: IconButton(
+          onPressed: () {
+            setState(() {
+              toggleVisibility = !toggleVisibility;
+            });
+          },
+          icon: Icon(
+            toggleVisibility ? Icons.visibility : Icons.visibility_off,
+          ),
+        ),
         focusedBorder: UnderlineInputBorder(
           borderSide: BorderSide(color: Colors.white),
         ),

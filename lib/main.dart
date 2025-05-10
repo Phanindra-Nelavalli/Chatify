@@ -1,14 +1,23 @@
 import 'package:chatify/pages/home_page.dart';
 import 'package:chatify/pages/login_page.dart';
 import 'package:chatify/pages/registration_page.dart';
+import 'package:chatify/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import './services/navigation_service.dart';
+import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  runApp(const MyApp());
+
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => AuthProvider(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

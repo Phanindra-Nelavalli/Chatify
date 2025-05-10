@@ -1,3 +1,4 @@
+import 'package:chatify/components/forgot_password.dart';
 import 'package:chatify/services/navigation_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -19,6 +20,7 @@ class _LoginPageState extends State<LoginPage> {
 
   late double _deviceheight;
   late double _devicewidth;
+  bool toggleVisibility = true;
 
   late GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -85,7 +87,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _inputForm() {
     return Container(
-      height: _deviceheight * 0.16,
+      height: _deviceheight * 0.19,
       child: Form(
         key: _formKey,
         onChanged: () {
@@ -125,23 +127,40 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _passwordTextField() {
-    return TextFormField(
-      autocorrect: false,
-      obscureText: true,
-      validator: (_input) {
-        return _input?.length != 0 ? null : "Enter a valid password";
-      },
-      onSaved: (_input) {
-        setState(() {
-          _password = _input!;
-        });
-      },
-      decoration: InputDecoration(
-        hintText: "Password",
-        focusedBorder: UnderlineInputBorder(
-          borderSide: BorderSide(color: Colors.white),
+    return Column(
+      children: [
+        TextFormField(
+          autocorrect: false,
+          obscureText: toggleVisibility,
+
+          validator: (_input) {
+            return _input?.length != 0 ? null : "Enter a valid password";
+          },
+          onSaved: (_input) {
+            setState(() {
+              _password = _input!;
+            });
+          },
+          decoration: InputDecoration(
+            hintText: "Password",
+            suffixIcon: IconButton(
+              onPressed: () {
+                setState(() {
+                  toggleVisibility = !toggleVisibility;
+                });
+              },
+              icon: Icon(
+                toggleVisibility ? Icons.visibility : Icons.visibility_off,
+              ),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white),
+            ),
+          ),
         ),
-      ),
+        SizedBox(height: 3),
+        ForgotPassword(),
+      ],
     );
   }
 
